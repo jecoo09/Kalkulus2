@@ -2,7 +2,7 @@
 
 // Python headers must be included before any system headers, since
 // they define _POSIX_C_SOURCE
-#include <Python.h>
+#include <C:\Python312\include\Python.h>
 
 #include <vector>
 #include <map>
@@ -17,7 +17,7 @@
 
 #ifndef WITHOUT_NUMPY
 #  define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#  include <numpy/arrayobject.h>
+#  include <C:\Python312\Lib\site-packages\numpy\_core\include\numpy\arrayobject.h>
 
 #  ifdef WITH_OPENCV
 #    include <opencv2/opencv.hpp>
@@ -46,6 +46,7 @@ namespace detail {
 static std::string s_backend;
 
 struct _interpreter {
+    PyObject* pymod;
     PyObject* s_python_function_arrow;
     PyObject *s_python_function_show;
     PyObject *s_python_function_close;
@@ -171,14 +172,7 @@ private:
 #else
         char name[] = "plotting";
 #endif
-        // Py_SetProgramName(name);
-        PyConfig config;
-
-        PyConfig_InitPythonConfig(&config);
-        PyConfig_SetString(&config, &config.program_name, name);
-        Py_InitializeFromConfig(&config);
-        PyConfig_Clear(&config);
-
+        Py_SetProgramName(name);
         Py_Initialize();
 
         wchar_t const *dummy_args[] = {L"Python", NULL};  // const is needed because literals must not be modified
@@ -186,11 +180,7 @@ private:
         int             argc = sizeof(dummy_args)/sizeof(dummy_args[0])-1;
 
 #if PY_MAJOR_VERSION >= 3
-        // PySys_SetArgv(argc, const_cast<wchar_t **>(argv));
-        // PyConfig_SetArgv(&config, argc, argv);
-        PyConfig_SetArgv(&config, argc, const_cast<wchar_t**>(argv));
-
-
+        PySys_SetArgv(argc, const_cast<wchar_t **>(argv));
 #else
         PySys_SetArgv(argc, (char **)(argv));
 #endif
@@ -223,9 +213,36 @@ private:
 
 
 
-        PyObject* pymod = PyImport_Import(pyplotname);
+        pymod = PyImport_Import(pyplotname);
         Py_DECREF(pyplotname);
         if (!pymod) { throw std::runtime_error("Error loading module matplotlib.pyplot!"); }
+
+        PyObject * mpl_toolkitsmod; 
+        PyObject * axis3dmod;
+        if (!mpl_toolkitsmod) {
+            PyObject* mpl_toolkits = PyString_FromString("mpl_toolkits");
+            PyObject* axis3d = PyString_FromString("mpl_toolkits.mplot3d");
+            if (!mpl_toolkits || !axis3d) { throw std::runtime_error("couldnt create string"); }
+
+            mpl_toolkitsmod = PyImport_Import(mpl_toolkits);
+            Py_DECREF(mpl_toolkits);
+            if (!mpl_toolkitsmod) { throw std::runtime_error("Error loading module mpl_toolkits!"); }
+
+            axis3dmod = PyImport_Import(axis3d);
+            Py_DECREF(axis3d);
+            if (!axis3dmod) { throw std::runtime_error("Error loading module mpl_toolkits.mplot3d!"); }
+        }
+
+
+
+
+
+
+
+
+
+
+
 
         s_python_colormap = PyImport_Import(cmname);
         Py_DECREF(cmname);
@@ -316,6 +333,33 @@ inline void backend(const std::string& name)
     detail::s_backend = name;
 }
 
+inline bool annotateGraph(PyObject * ax, std::string annotation, double x, double y)
+{
+    detail::_interpreter::get();
+
+    PyObject * xy = PyTuple_New(2);
+    PyObject * str = PyString_FromString(annotation.c_str());
+
+    PyTuple_SetItem(xy,0,PyFloat_FromDouble(x));
+    PyTuple_SetItem(xy,1,PyFloat_FromDouble(y));
+
+    PyObject* kwargs = PyDict_New();
+    PyDict_SetItemString(kwargs, "xy", xy);
+
+    PyObject* args = PyTuple_New(1);
+    PyTuple_SetItem(args, 0, str);
+
+    PyObject * writer = PyObject_GetAttrString(ax, "annotate");
+    PyObject * res = PyObject_Call(writer, args, kwargs);
+
+    Py_DECREF(args);
+    Py_DECREF(kwargs);
+
+    if(res) Py_DECREF(res);
+
+    return res;
+}
+
 inline bool annotate(std::string annotation, double x, double y)
 {
     detail::_interpreter::get();
@@ -342,6 +386,47 @@ inline bool annotate(std::string annotation, double x, double y)
     return res;
 }
 
+PyObject * chart(int place)
+{
+    PyObject * drawObject = PyObject_GetAttrString(detail::_interpreter::get().pymod, "subplot");
+    PyObject * args = PyTuple_New(1);
+    PyObject * kwargs = PyDict_New();
+    PyTuple_SetItem(args, 0, PyLong_FromLong(place));
+    PyDict_SetItemString(kwargs, "projection", PyUnicode_FromString("3d"));
+    PyObject * thePlot = PyObject_Call(drawObject, args, kwargs);
+    return thePlot;
+}
+
+PyObject * chart2D(int place)
+{
+    PyObject * drawObject = PyObject_GetAttrString(detail::_interpreter::get().pymod, "subplot");
+    PyObject * args = PyTuple_New(1);
+    PyObject * kwargs = PyDict_New();
+    PyTuple_SetItem(args, 0, PyLong_FromLong(place));
+    PyObject * thePlot = PyObject_Call(drawObject, args, kwargs);
+    return thePlot;
+}
+
+inline void Clear3DChart(PyObject * ax)
+{
+    PyObject * eraser = PyObject_GetAttrString(ax, "cla");
+    PyObject * args = PyTuple_New(0);
+    PyObject_CallObject(eraser, args);
+}
+
+inline void Chart3DAxesNames(PyObject * ax, std::string x, std::string y, std::string z){
+    PyObject * xaxis = PyObject_GetAttrString(ax, "set_xlabel");
+    PyObject * yaxis = PyObject_GetAttrString(ax, "set_ylabel");
+    PyObject * zaxis = PyObject_GetAttrString(ax, "set_zlabel");
+    PyObject * args = PyTuple_New(1);
+    PyTuple_SetItem(args, 0, PyUnicode_FromString(x.c_str()));
+    PyObject_CallObject(xaxis, args);
+    PyTuple_SetItem(args, 0, PyUnicode_FromString(y.c_str()));
+    PyObject_CallObject(yaxis, args);
+    PyTuple_SetItem(args, 0, PyUnicode_FromString(z.c_str()));
+    PyObject_CallObject(zaxis, args);
+}
+
 namespace detail {
 
 #ifndef WITHOUT_NUMPY
@@ -361,10 +446,12 @@ template <> struct select_npy_type<uint64_t> { const static NPY_TYPES type = NPY
 
 // Sanity checks; comment them out or change the numpy type below if you're compiling on
 // a platform where they don't apply
-// static_assert(sizeof(long long) == 8);
-// template <> struct select_npy_type<long long> { const static NPY_TYPES type = NPY_INT64; };
-// static_assert(sizeof(unsigned long long) == 8);
-// template <> struct select_npy_type<unsigned long long> { const static NPY_TYPES type = NPY_UINT64; };
+/*
+static_assert(sizeof(long long) == 8);
+template <> struct select_npy_type<long long> { const static NPY_TYPES type = NPY_INT64; };
+static_assert(sizeof(unsigned long long) == 8);
+template <> struct select_npy_type<unsigned long long> { const static NPY_TYPES type = NPY_UINT64; };
+*/
 
 template<typename Numeric>
 PyObject* get_array(const std::vector<Numeric>& v)
@@ -481,9 +568,196 @@ bool plot(const std::vector<Numeric> &x, const std::vector<Numeric> &y, const st
     return res;
 }
 
+template<typename Numeric>
+bool plot2D(PyObject * ax, const std::vector<Numeric> &x, const std::vector<Numeric> &y, std::string color)
+{
+    assert(x.size() == y.size());
+
+    // using numpy arrays
+    PyObject* xarray = detail::get_array(x);
+    PyObject* yarray = detail::get_array(y);
+
+    // construct positional args
+    PyObject* args = PyTuple_New(2);
+    PyTuple_SetItem(args, 0, xarray);
+    PyTuple_SetItem(args, 1, yarray);
+
+    // construct keyword args
+    PyObject* kwargs = PyDict_New();
+    PyDict_SetItemString(kwargs, "color", PyUnicode_FromString(color.c_str()));
+
+    PyObject * theplot = PyObject_GetAttrString(ax, "plot");
+
+    PyObject* res = PyObject_Call(theplot, args, kwargs);
+
+    Py_DECREF(args);
+    Py_DECREF(kwargs);
+    if(res) Py_DECREF(res);
+
+    return res;
+}
+
+template<typename Numeric>
+bool scatter2D(PyObject * ax, const std::vector<Numeric> &x, const std::vector<Numeric> &y, std::string color)
+{
+    assert(x.size() == y.size());
+
+    // using numpy arrays
+    PyObject* xarray = detail::get_array(x);
+    PyObject* yarray = detail::get_array(y);
+
+    // construct positional args
+    PyObject* args = PyTuple_New(2);
+    PyTuple_SetItem(args, 0, xarray);
+    PyTuple_SetItem(args, 1, yarray);
+
+    // construct keyword args
+    PyObject* kwargs = PyDict_New();
+    PyDict_SetItemString(kwargs, "color", PyUnicode_FromString(color.c_str()));
+
+    PyObject * theplot = PyObject_GetAttrString(ax, "scatter");
+
+    PyObject* res = PyObject_Call(theplot, args, kwargs);
+
+    Py_DECREF(args);
+    Py_DECREF(kwargs);
+    if(res) Py_DECREF(res);
+
+    return res;
+}
+
+
+bool scatter2DX(PyObject * ax, double x, double y, std::string color)
+{
+
+    // construct positional args
+    PyObject* args = PyTuple_New(2);
+    PyTuple_SetItem(args, 0, PyFloat_FromDouble(x));
+    PyTuple_SetItem(args, 1, PyFloat_FromDouble(y));
+
+    // construct keyword args
+    PyObject* kwargs = PyDict_New();
+    PyDict_SetItemString(kwargs, "color", PyUnicode_FromString(color.c_str()));
+
+    PyObject * theplot = PyObject_GetAttrString(ax, "scatter");
+
+    PyObject* res = PyObject_Call(theplot, args, kwargs);
+
+    Py_DECREF(args);
+    Py_DECREF(kwargs);
+    if(res) Py_DECREF(res);
+
+    return res;
+}
+
+template<typename Numeric>
+bool bar2D(PyObject * ax, const std::vector<Numeric> &x, const std::vector<Numeric> &y, std::string color)
+{
+    assert(x.size() == y.size());
+
+    // using numpy arrays
+    PyObject* xarray = detail::get_array(x);
+    PyObject* yarray = detail::get_array(y);
+
+    // construct positional args
+    PyObject* args = PyTuple_New(4);
+    PyTuple_SetItem(args, 0, xarray);
+    PyTuple_SetItem(args, 1, yarray);
+    PyTuple_SetItem(args, 2, PyFloat_FromDouble(0.7));
+    PyTuple_SetItem(args, 3, PyFloat_FromDouble(1.0));
+    
+
+    // construct keyword args
+    PyObject* kwargs = PyDict_New();
+    PyDict_SetItemString(kwargs, "color", PyUnicode_FromString(color.c_str()));
+
+    PyObject * theplot = PyObject_GetAttrString(ax, "bar");
+
+    PyObject* res = PyObject_Call(theplot, args, kwargs);
+
+    Py_DECREF(args);
+    Py_DECREF(kwargs);
+    if(res) Py_DECREF(res);
+
+    return res;
+}
+
 // TODO - it should be possible to make this work by implementing
 // a non-numpy alternative for `detail::get_2darray()`.
 #ifndef WITHOUT_NUMPY
+template <typename Numeric>
+void surface3D(PyObject * ax,
+                  const std::vector<::std::vector<Numeric>> &x,
+                  const std::vector<::std::vector<Numeric>> &y,
+                  const std::vector<::std::vector<Numeric>> &z,
+                  std::string color,
+                  double linewidth)
+{
+    PyObject * X = detail::get_2darray(x);
+    PyObject * Y = detail::get_2darray(y);
+    PyObject * Z = detail::get_2darray(z);
+
+    PyObject * args = PyTuple_New(3);
+    PyObject * kwargs = PyDict_New();
+    PyTuple_SetItem(args, 0, X);
+    PyTuple_SetItem(args, 1, Y);
+    PyTuple_SetItem(args, 2, Z);
+    PyDict_SetItemString(kwargs, "color", PyUnicode_FromString(color.c_str()));
+    PyDict_SetItemString(kwargs, "linewidth", PyLong_FromLong(linewidth));
+
+
+    PyObject * thePlot = PyObject_GetAttrString(ax, "plot_surface");
+    PyObject_Call(thePlot, args, kwargs);
+}
+
+template <typename Numeric>
+void surface3DMap(PyObject * ax,
+                  const std::vector<::std::vector<Numeric>> &x,
+                  const std::vector<::std::vector<Numeric>> &y,
+                  const std::vector<::std::vector<Numeric>> &z,
+                  std::string color,
+                  double linewidth)
+{
+    PyObject * X = detail::get_2darray(x);
+    PyObject * Y = detail::get_2darray(y);
+    PyObject * Z = detail::get_2darray(z);
+
+    PyObject * args = PyTuple_New(3);
+    PyObject * kwargs = PyDict_New();
+    PyTuple_SetItem(args, 0, X);
+    PyTuple_SetItem(args, 1, Y);
+    PyTuple_SetItem(args, 2, Z);
+    PyDict_SetItemString(kwargs, "cmap", PyUnicode_FromString(color.c_str()));
+    PyDict_SetItemString(kwargs, "linewidth", PyLong_FromLong(linewidth));
+
+
+    PyObject * thePlot = PyObject_GetAttrString(ax, "plot_surface");
+    PyObject_Call(thePlot, args, kwargs);
+}
+
+template <typename Numeric>
+void contour3D(PyObject * ax,
+                  const std::vector<::std::vector<Numeric>> &x,
+                  const std::vector<::std::vector<Numeric>> &y,
+                  const std::vector<::std::vector<Numeric>> &z,
+                  std::string color)
+{
+    PyObject * X = detail::get_2darray(x);
+    PyObject * Y = detail::get_2darray(y);
+    PyObject * Z = detail::get_2darray(z);
+
+    PyObject * args = PyTuple_New(3);
+    PyObject * kwargs = PyDict_New();
+    PyTuple_SetItem(args, 0, X);
+    PyTuple_SetItem(args, 1, Y);
+    PyTuple_SetItem(args, 2, Z);
+    PyDict_SetItemString(kwargs, "cmap", PyUnicode_FromString(color.c_str()));
+    
+
+    PyObject * thePlot = PyObject_GetAttrString(ax, "contourf");
+    PyObject_Call(thePlot, args, kwargs);
+}
+
 template <typename Numeric>
 void plot_surface(const std::vector<::std::vector<Numeric>> &x,
                   const std::vector<::std::vector<Numeric>> &y,
@@ -2302,6 +2576,13 @@ inline void subplot2grid(long nrows, long ncols, long rowid=0, long colid=0, lon
     Py_DECREF(loc);
     Py_DECREF(args);
     Py_DECREF(res);
+}
+
+inline void PlotTitle(PyObject * ax, std::string message){
+    PyObject * args = PyTuple_New(1);
+    PyTuple_SetItem(args, 0, PyUnicode_FromString(message.c_str()));
+    PyObject * title = PyObject_GetAttrString(ax, "set_title");
+    PyObject_CallObject(title, args);
 }
 
 inline void title(const std::string &titlestr, const std::map<std::string, std::string> &keywords = {})

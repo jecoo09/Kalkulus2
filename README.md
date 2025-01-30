@@ -26,6 +26,11 @@ contoh :
 ```bash
 g++ src\main.cpp -o output -I C:\Python312\include -I C:\Python312\Lib\site-packages\numpy\_core\include -I C:\test3d\include -L C:\Python312\libs -lpython312
 ```
+g++ algo.cpp -o algo -I C:\Python312\include -I C:\Python312\Lib\site-packages\numpy\_core\include -I C:\test3d\include -L C:\Python312\libs -lpython312
+
+```bash
+g++ coba.cpp -o progres2d -I C:\Python312\Lib\site-packages\numpy\_core\include -I C:\test3d\include -L C:\Python312\libs -lpython312
+```
 
 ## Cara run program
 input :
@@ -40,5 +45,7 @@ contoh :
 ./output.exe
 ```
 
+## next update?
+benerin fungsi dri progres2d.cpp dan coba.cpp
 
 ## sisanya belajar sendiri, dah gede
