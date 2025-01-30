@@ -41,4 +41,4 @@ contoh :
 ```
 
 ## next update?
-Lanjut ke 3d
+Trial error, sisanya done
