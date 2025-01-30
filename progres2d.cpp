@@ -5,36 +5,34 @@
 #include <limits>
 #include <string>
 
+using namespace std;
 namespace plt = matplotlibcpp;
 
 int main() {
-    // Menampilkan pilihan rumus untuk pengguna
-    std::cout << "Pilih rumus untuk digambar:\n";
-    std::cout << "1. y = x^2\n";
-    std::cout << "2. y = 2x + 1\n";
-    std::cout << "3. y = sin(x)\n";
-    std::cout << "4. y = cos(x)\n";
-    std::cout << "5. y = tan(x)\n";
-    std::cout << "6. y = log(x)\n";
-    std::cout << "Masukkan pilihan (1-6): ";
+    cout << "Pilih rumus untuk digambar:\n";
+    cout << "1. y = x^2\n";
+    cout << "2. y = 2x + 1\n";
+    cout << "3. y = sin(x)\n";
+    cout << "4. y = cos(x)\n";
+    cout << "5. y = tan(x)\n";
+    cout << "6. y = log(x)\n";
+    cout << "Masukkan pilihan (1-6): ";
     
     int pilihan;
-    std::cin >> pilihan;
+    cin >> pilihan;
 
-    // Membuat rentang nilai x dengan resolusi yang lebih tinggi
-    std::vector<double> x;
+    vector<double> x;
     double start = -10, end = 10, step = 0.05;
     for (double i = start; i <= end; i += step) {
         x.push_back(i);
     }
 
-    std::vector<double> y;
-    double y_min = std::numeric_limits<double>::max();
-    double y_max = std::numeric_limits<double>::lowest();
+    vector<double> y;
+    double y_min = numeric_limits<double>::max();
+    double y_max = numeric_limits<double>::lowest();
     
-    std::string title;
+    string title;
 
-    // Pilih rumus berdasarkan input pengguna
     switch (pilihan) {
         case 1: {
             for (double xi : x) {
@@ -79,7 +77,7 @@ int main() {
         case 5: {
             for (double xi : x) {
                 double yi = tan(xi);
-                // Membatasi nilai tan untuk visualisasi yang lebih baik
+                // Membatasi nilai tan
                 if (yi > 10) yi = 10;
                 if (yi < -10) yi = -10;
                 y.push_back(yi);
@@ -90,7 +88,7 @@ int main() {
             break;
         }
         case 6: {
-            std::vector<double> valid_x, valid_y;
+            vector<double> valid_x, valid_y;
             for (double xi : x) {
                 if (xi > 0) {
                     double yi = log(xi);
@@ -106,34 +104,29 @@ int main() {
             break;
         }
         default:
-            std::cout << "Pilihan tidak valid!" << std::endl;
+            cout << "Pilihan tidak valid!" << endl;
             return 1;
     }
 
-    // Plot fungsi utama dengan warna biru
-    std::map<std::string, std::string> keywords;
+    map<string, string> keywords;
     keywords["color"] = "blue";
     keywords["label"] = title;
     plt::plot(x, y, keywords);
 
-    // Menambahkan garis sumbu
-    std::vector<double> x_axis = {start, end};
-    std::vector<double> y_axis = {0, 0};
+    vector<double> x_axis = {start, end};
+    vector<double> y_axis = {0, 0};
     plt::plot(x_axis, y_axis, "k--");
 
-    std::vector<double> x_axis_vert = {0, 0};
-    std::vector<double> y_axis_vert = {y_min, y_max};
+    vector<double> x_axis_vert = {0, 0};
+    vector<double> y_axis_vert = {y_min, y_max};
     plt::plot(x_axis_vert, y_axis_vert, "k--");
 
-    // Konfigurasi grid dan legend
     plt::grid(true);
     plt::legend();
 
-    // Set batas sumbu y yang lebih baik
     double y_margin = (y_max - y_min) * 0.1;
     plt::ylim(y_min - y_margin, y_max + y_margin);
 
-    // Menampilkan plot
     plt::show();
 
     return 0;
