@@ -1,11 +1,9 @@
 # Kalkulus2
 ## Notes
 
-versi yang digunakan
-``` bash
-Python 3.12.2
-matplotlib  3.9.2
-```
+download python, matplotlib, dan juga numpy
+
+gunakan file yang di include kalau mau yang lebih jernih terminalnya
 
 ## Input terminal untuk compile
 input diterminal dengan urutan 
